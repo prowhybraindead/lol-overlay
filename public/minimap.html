@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoL Overlay — Minimap</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/overlay.css">
+  <style>
+    body { background: transparent; }
+    .minimap-wrapper {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+    }
+    .minimap-container {
+      width: 280px;
+      height: 280px;
+      position: relative;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid rgba(255,255,255,0.12);
+      background: #0d0d1a;
+    }
+    .minimap-grid {
+      position: absolute;
+      inset: 0;
+      /* Summoner's Rift minimap background */
+      background: linear-gradient(135deg, #1a2a1a 0%, #0d1a0d 30%, #0d0d1a 60%, #1a1a2a 100%);
+      opacity: 0.6;
+    }
+    .minimap-lane {
+      position: absolute;
+      background: rgba(255,255,255,0.06);
+    }
+    .lane-top {
+      top: 0; left: 0;
+      width: 4px; height: 70%;
+    }
+    .lane-top::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 70%; height: 4px;
+      background: rgba(255,255,255,0.06);
+    }
+    .lane-mid {
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: none;
+      border-bottom-left-radius: 0;
+    }
+    .lane-mid::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 4px; height: 100%;
+      background: none;
+      transform: rotate(-45deg);
+      transform-origin: top left;
+    }
+    .lane-bot {
+      bottom: 0; right: 0;
+      width: 70%; height: 4px;
+    }
+    .lane-bot::after {
+      content: '';
+      position: absolute;
+      top: -70%; right: 0;
+      width: 4px; height: 70%;
+      background: rgba(255,255,255,0.06);
+      transform: translateY(100%);
+    }
+    .mid-lane-line {
+      position: absolute;
+      top: 0; left: 0;
+      width: 141%;
+      height: 3px;
+      background: rgba(255,255,255,0.05);
+      transform: rotate(45deg);
+      transform-origin: bottom left;
+      bottom: 0;
+    }
+    .base-blue {
+      position: absolute;
+      bottom: 4px; left: 4px;
+      width: 40px; height: 40px;
+      border-radius: 4px;
+      background: rgba(26, 115, 232, 0.15);
+      border: 1px solid rgba(26, 115, 232, 0.3);
+    }
+    .base-red {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 40px; height: 40px;
+      border-radius: 4px;
+      background: rgba(229, 57, 53, 0.15);
+      border: 1px solid rgba(229, 57, 53, 0.3);
+    }
+    .objective-marker {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      z-index: 5;
+    }
+    .baron-pit {
+      top: 25%; right: 30%;
+      background: rgba(128, 0, 128, 0.2);
+      border: 1px solid rgba(128, 0, 128, 0.4);
+    }
+    .dragon-pit {
+      bottom: 25%; left: 30%;
+      background: rgba(255, 165, 0, 0.2);
+      border: 1px solid rgba(255, 165, 0, 0.4);
+    }
+    .minimap-champ {
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      background-size: cover;
+      background-position: center;
+      transition: all 1s ease;
+      box-shadow: 0 0 6px rgba(0,0,0,0.5);
+    }
+    .minimap-champ.blue { border-color: #1a73e8; }
+    .minimap-champ.red { border-color: #e53935; }
+    .minimap-champ.dead { opacity: 0.3; filter: grayscale(1); }
+    .minimap-label {
+      position: absolute;
+      bottom: -14px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 7px;
+      font-weight: 700;
+      white-space: nowrap;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="minimap-wrapper">
+    <div class="minimap-container" id="minimap">
+      <!-- Background grid -->
+      <div class="minimap-grid"></div>
+
+      <!-- Lane indicators -->
+      <div class="minimap-lane lane-top"></div>
+      <div class="minimap-lane lane-bot"></div>
+      <div class="mid-lane-line"></div>
+
+      <!-- Base markers -->
+      <div class="base-blue">
+        <span style="font-size:8px;color:rgba(26,115,232,0.5);position:absolute;bottom:2px;left:4px;">🏰</span>
+      </div>
+      <div class="base-red">
+        <span style="font-size:8px;color:rgba(229,57,53,0.5);position:absolute;top:2px;right:4px;">🏰</span>
+      </div>
+
+      <!-- Objective markers -->
+      <div class="objective-marker baron-pit" title="Baron">👑</div>
+      <div class="objective-marker dragon-pit" title="Dragon">🐉</div>
+
+      <!-- Champions will be injected here -->
+      <div id="minimap-champions"></div>
+    </div>
+
+    <!-- Timer label -->
+    <div class="text-center mt-1">
+      <span class="text-[9px] text-white/30 uppercase tracking-widest">Minimap</span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    const OC = window.OverlayClient;
+
+    // Default placeholder positions (spread across map in typical lanes)
+    const defaultPositions = {
+      blue: [
+        { x: 15, y: 50 },  // Top
+        { x: 35, y: 35 },  // Jungle
+        { x: 45, y: 55 },  // Mid
+        { x: 75, y: 85 },  // ADC
+        { x: 70, y: 90 },  // Support
+      ],
+      red: [
+        { x: 50, y: 15 },  // Top
+        { x: 65, y: 65 },  // Jungle
+        { x: 55, y: 45 },  // Mid
+        { x: 25, y: 15 },  // ADC
+        { x: 30, y: 10 },  // Support
+      ]
+    };
+
+    // ─── Game Data → Update Minimap ─────────────────────────────
+    window.addEventListener('overlay:gameData', (e) => {
+      const data = e.detail;
+      if (!data || !data.blueTeam || !data.redTeam) return;
+      renderChampions(data.blueTeam.players, data.redTeam.players);
+    });
+
+    function renderChampions(bluePlayers, redPlayers) {
+      const container = document.getElementById('minimap-champions');
+      if (!container) return;
+
+      let html = '';
+
+      // Blue team
+      bluePlayers.forEach((p, i) => {
+        const champName = (p.rawChampionName || p.championName || '').replace('game_character_displayname_', '');
+        const iconUrl = OC.getChampionIcon(champName);
+        const pos = defaultPositions.blue[i] || { x: 20, y: 80 };
+        const deadClass = p.isDead ? 'dead' : '';
+
+        html += `<div class="minimap-champ blue ${deadClass}"
+          style="left:${pos.x}%;top:${pos.y}%;background-image:url('${iconUrl}');"
+          title="${p.summonerName}">
+        </div>`;
+      });
+
+      // Red team
+      redPlayers.forEach((p, i) => {
+        const champName = (p.rawChampionName || p.championName || '').replace('game_character_displayname_', '');
+        const iconUrl = OC.getChampionIcon(champName);
+        const pos = defaultPositions.red[i] || { x: 80, y: 20 };
+        const deadClass = p.isDead ? 'dead' : '';
+
+        html += `<div class="minimap-champ red ${deadClass}"
+          style="left:${pos.x}%;top:${pos.y}%;background-image:url('${iconUrl}');"
+          title="${p.summonerName}">
+        </div>`;
+      });
+
+      container.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

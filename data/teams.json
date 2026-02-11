@@ -1,0 +1,50 @@
+[
+  {
+    "id": "hcmus",
+    "name": "HCMUS Esports",
+    "tag": "HCM",
+    "logo": "/assets/hcmus-logo.png",
+    "school": "ĐH Khoa học Tự nhiên TP.HCM",
+    "color": "#1a73e8"
+  },
+  {
+    "id": "fpt",
+    "name": "FPT Foxes",
+    "tag": "FPT",
+    "logo": "/assets/fpt-logo.png",
+    "school": "ĐH FPT",
+    "color": "#e53935"
+  },
+  {
+    "id": "bku",
+    "name": "BK United",
+    "tag": "BKU",
+    "logo": "/assets/bku-logo.png",
+    "school": "ĐH Bách Khoa TP.HCM",
+    "color": "#0d47a1"
+  },
+  {
+    "id": "ueh",
+    "name": "UEH Tigers",
+    "tag": "UEH",
+    "logo": "/assets/ueh-logo.png",
+    "school": "ĐH Kinh tế TP.HCM",
+    "color": "#ff6f00"
+  },
+  {
+    "id": "uit",
+    "name": "UIT Gamers",
+    "tag": "UIT",
+    "logo": "/assets/uit-logo.png",
+    "school": "ĐH Công nghệ Thông tin",
+    "color": "#00695c"
+  },
+  {
+    "id": "rmit",
+    "name": "RMIT Dragons",
+    "tag": "RMIT",
+    "logo": "/assets/rmit-logo.png",
+    "school": "ĐH RMIT Việt Nam",
+    "color": "#c62828"
+  }
+]

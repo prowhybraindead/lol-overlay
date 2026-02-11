@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoL Overlay — Pick/Ban</title>
+  <link rel="stylesheet" href="/css/overlay.css">
+  <style>
+    .pb-wrap { width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:20px; }
+    .pb-timer { font-family:var(--font-num);font-size:36px;color:var(--gold);margin-bottom:4px; }
+    .pb-phase { font-size:12px;font-weight:700;color:var(--gold-dim);text-transform:uppercase;letter-spacing:3px;padding:4px 16px;border:1px solid rgba(240,178,50,0.2);border-radius:14px;margin-bottom:12px; }
+    .pb-teams { display:flex;align-items:center;gap:40px;margin-bottom:14px; }
+    .pb-team { display:flex;align-items:center;gap:10px; }
+    .pb-team img { height:36px;object-fit:contain; }
+    .pb-vs { font-family:var(--font-num);font-size:22px;color:var(--gold); }
+    .pb-bans { display:flex;align-items:center;gap:28px;margin-bottom:10px; }
+    .pb-bans-label { font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:3px; }
+    .ban-row { display:flex;gap:3px; }
+    .pb-picks { display:flex;align-items:center;gap:12px; }
+    .pick-row { display:flex;gap:6px; }
+  </style>
+</head>
+<body>
+
+  <div id="waiting" style="display:flex;" class="splash">
+    <div class="splash-box"><h1>PICK / BAN</h1><p>Đang chờ Champion Select...</p></div>
+  </div>
+
+  <div id="pb" class="pb-wrap" style="display:none;">
+    <div class="pb-timer" id="pb-timer">30</div>
+    <div class="pb-phase" id="pb-phase">BAN PHASE</div>
+    <div class="pb-teams">
+      <div class="pb-team"><img id="pb-bl" src="" onerror="this.style.display='none'"><span class="t-tag blue" id="pb-bn">BLUE</span></div>
+      <span class="pb-vs">VS</span>
+      <div class="pb-team"><span class="t-tag red" id="pb-rn">RED</span><img id="pb-rl" src="" onerror="this.style.display='none'"></div>
+    </div>
+    <div class="pb-bans">
+      <div class="ban-row" id="bb"></div>
+      <span class="pb-bans-label">bans</span>
+      <div class="ban-row" id="rb"></div>
+    </div>
+    <div class="pb-picks">
+      <div class="pick-row" id="bp"></div>
+      <div class="pick-row" id="rp"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    const OC = window.OverlayClient;
+    let champMap = {};
+    async function loadChamps() {
+      try {
+        const v = OC.getDDragonVersion();
+        const r = await fetch(`https://ddragon.leagueoflegends.com/cdn/${v}/data/en_US/champion.json`);
+        const d = await r.json();
+        for (const [k,c] of Object.entries(d.data)) champMap[parseInt(c.key)] = { id:k, name:c.name };
+      } catch(e) {}
+    }
+    window.addEventListener('overlay:configLoaded', e => {
+      const c = e.detail;
+      if (c.teams) {
+        document.getElementById('pb-bn').textContent = c.teams.blue.tag||'BLUE';
+        document.getElementById('pb-rn').textContent = c.teams.red.tag||'RED';
+        if (c.teams.blue.logo) document.getElementById('pb-bl').src = c.teams.blue.logo;
+        if (c.teams.red.logo) document.getElementById('pb-rl').src = c.teams.red.logo;
+      }
+    });
+    window.addEventListener('overlay:ddragonVersion', () => loadChamps());
+    setTimeout(loadChamps, 2000);
+
+    window.addEventListener('overlay:champSelect', e => {
+      const d = e.detail;
+      document.getElementById('waiting').style.display = 'none';
+      document.getElementById('pb').style.display = 'flex';
+      document.getElementById('pb-phase').textContent = d.phase||'BAN PHASE';
+      if (d.timer) document.getElementById('pb-timer').textContent = Math.max(0, Math.ceil((d.timer.adjustedTimeMs||0)/1000));
+      renderBans('bb', d.bans?.filter(b=>b.teamId==='blue')||[]);
+      renderBans('rb', d.bans?.filter(b=>b.teamId==='red')||[]);
+      renderPicks('bp', d.blueTeam||[], d.picks?.filter(p=>p.teamId==='blue')||[], 'blue');
+      renderPicks('rp', d.redTeam||[], d.picks?.filter(p=>p.teamId==='red')||[], 'red');
+    });
+    window.addEventListener('overlay:gamePhase', e => {
+      if (e.detail.phase !== 'champSelect') { document.getElementById('waiting').style.display='flex'; document.getElementById('pb').style.display='none'; }
+    });
+
+    function renderBans(id, bans) {
+      const c = document.getElementById(id); let h = '';
+      for (let i=0;i<5;i++) {
+        const b = bans[i]; if (b?.championId > 0) {
+          const ch = champMap[b.championId]; const img = ch ? OC.getChampionIcon(ch.id) : '';
+          h += `<div class="ban-slot ${b.isCompleted?'':'active'}">${img?`<img src="${img}">`:'?'}</div>`;
+        } else h += '<div class="ban-slot"></div>';
+      } c.innerHTML = h;
+    }
+
+    function renderPicks(id, tp, picks, side) {
+      const c = document.getElementById(id); let h = '';
+      for (let i=0;i<5;i++) {
+        const p = tp[i]; const cId = p?.championId||0;
+        const ch = cId > 0 ? champMap[cId] : null;
+        const img = ch ? OC.getChampionLoading(ch.id) : '';
+        const nm = ch ? OC.resolveChampName(ch.id) : '';
+        const active = picks.some(pk => pk.actorCellId === (p?.cellId??-1) && !pk.isCompleted);
+        h += `<div class="pick-card ${side} ${active?'active':''}">
+          ${img?`<img src="${img}">`:'<div style="height:75%;background:var(--bg-dark);"></div>'}
+          <div class="name">${nm||'—'}</div>
+        </div>`;
+      } c.innerHTML = h;
+    }
+  </script>
+</body>
+</html>

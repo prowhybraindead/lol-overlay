@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoL Overlay — Scoreboard</title>
+  <link rel="stylesheet" href="/css/overlay.css">
+</head>
+<body>
+
+  <!-- ═══ TOP SCOREBOARD BAR ═══════════════════════════════════ -->
+  <div class="scoreboard" id="scoreboard">
+    <!-- Team color accent lines -->
+    <div class="accent-top-blue"></div>
+    <div class="accent-top-red"></div>
+
+    <!-- ── Blue Side (left, flows right-to-left) ── -->
+    <div class="team-half blue">
+      <div class="obj-row" id="blue-obj"></div>
+      <div class="sep"></div>
+      <div class="stat">
+        <span class="stat-icon">🗼</span>
+        <span class="stat-val" id="blue-towers">0</span>
+      </div>
+      <div class="sep"></div>
+      <div class="stat">
+        <span class="stat-val" id="blue-gold-t" style="color:var(--gold);font-size:16px;">0</span>
+      </div>
+      <div class="sep"></div>
+      <div class="t-series" id="blue-score">0</div>
+      <div class="t-tag blue" id="blue-tag">BLUE</div>
+      <div class="t-logo">
+        <img id="blue-logo" src="" alt="" onerror="this.style.display='none'">
+      </div>
+    </div>
+
+    <!-- ── Center Block ── -->
+    <div class="center-block">
+      <div class="c-kills blue" id="c-blue-kills">0</div>
+      <div class="c-info">
+        <div class="c-gold-row">
+          <span class="blue" id="c-blue-g">0</span>
+          <span class="icon">💰</span>
+          <span class="red" id="c-red-g">0</span>
+        </div>
+        <div class="c-timer" id="c-timer">0:00</div>
+      </div>
+      <div class="c-kills red" id="c-red-kills">0</div>
+    </div>
+
+    <!-- ── Red Side (right, flows left-to-right) ── -->
+    <div class="team-half red">
+      <div class="t-logo">
+        <img id="red-logo" src="" alt="" onerror="this.style.display='none'">
+      </div>
+      <div class="t-tag red" id="red-tag">RED</div>
+      <div class="t-series" id="red-score">0</div>
+      <div class="sep"></div>
+      <div class="stat">
+        <span class="stat-val" id="red-gold-t" style="color:var(--gold);font-size:16px;">0</span>
+      </div>
+      <div class="sep"></div>
+      <div class="stat">
+        <span class="stat-icon">🗼</span>
+        <span class="stat-val" id="red-towers">0</span>
+      </div>
+      <div class="sep"></div>
+      <div class="obj-row" id="red-obj"></div>
+    </div>
+  </div>
+
+  <!-- ═══ GOLD DIFF BADGE ════════════════════════════════════ -->
+  <div class="gold-diff" id="gold-diff" style="display:none;">+0</div>
+
+  <!-- ═══ ANNOUNCER ══════════════════════════════════════════ -->
+  <div class="announcer" id="announcer" style="display:none;">
+    <div class="ann-text" id="ann-text"></div>
+  </div>
+
+  <!-- ═══ KILL FEED ══════════════════════════════════════════ -->
+  <div class="killfeed" id="killfeed"></div>
+
+  <!-- ═══ BOTTOM PLAYER PANELS ═══════════════════════════════ -->
+  <div class="players-bar">
+    <div class="panel blue" id="panel-blue"></div>
+    <div class="panel red" id="panel-red"></div>
+  </div>
+
+  <!-- ═══ WAITING SPLASH ═════════════════════════════════════ -->
+  <div class="splash" id="splash">
+    <div class="splash-box">
+      <h1>🎮 VN Student LoL Overlay</h1>
+      <p>Đang chờ trận đấu...</p>
+      <p style="margin-top:8px;color:rgba(255,255,255,0.2);font-size:10px;">
+        Kết nối server — chờ dữ liệu từ LoL Client
+      </p>
+    </div>
+  </div>
+
+  <!-- ═══ SCRIPTS ════════════════════════════════════════════ -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    const OC = window.OverlayClient;
+    let prevBK = 0, prevRK = 0, prevDeaths = {};
+    let annTimer = null;
+
+    // ── Config ──────────────────────────────────────────────
+    window.addEventListener('overlay:configLoaded', e => {
+      const c = e.detail;
+      if (c.teams) {
+        qs('#blue-tag').textContent = c.teams.blue.tag || 'BLUE';
+        qs('#red-tag').textContent  = c.teams.red.tag || 'RED';
+        if (c.teams.blue.logo) qs('#blue-logo').src = c.teams.blue.logo;
+        if (c.teams.red.logo) qs('#red-logo').src = c.teams.red.logo;
+      }
+    });
+
+    // ── Game Data ───────────────────────────────────────────
+    window.addEventListener('overlay:gameData', e => {
+      const d = e.detail;
+      qs('#splash').style.display = 'none';
+
+      // Timer
+      qs('#c-timer').textContent = fmtTime(d.gameTime);
+
+      // Team kills (center)
+      anim('#c-blue-kills', prevBK, d.blueTeam.totalKills || 0);
+      anim('#c-red-kills', prevRK, d.redTeam.totalKills || 0);
+      prevBK = d.blueTeam.totalKills || 0;
+      prevRK = d.redTeam.totalKills || 0;
+
+      // Gold totals
+      qs('#blue-gold-t').textContent = fmtG(d.blueTeam.totalGold);
+      qs('#red-gold-t').textContent  = fmtG(d.redTeam.totalGold);
+      qs('#c-blue-g').textContent = fmtG(d.blueTeam.totalGold);
+      qs('#c-red-g').textContent  = fmtG(d.redTeam.totalGold);
+
+      // Towers
+      qs('#blue-towers').textContent = d.blueTeam.towers || 0;
+      qs('#red-towers').textContent  = d.redTeam.towers || 0;
+
+      // Gold diff badge
+      const diff = (d.blueTeam.totalGold || 0) - (d.redTeam.totalGold || 0);
+      const gd = qs('#gold-diff');
+      if (Math.abs(diff) > 300) {
+        gd.style.display = 'block';
+        gd.textContent = '+' + fmtG(Math.abs(diff));
+        gd.style.color = diff > 0 ? 'var(--blue-light)' : 'var(--red-light)';
+      } else gd.style.display = 'none';
+
+      // Player panels
+      renderPanel('panel-blue', d.blueTeam.players, 'blue');
+      renderPanel('panel-red', d.redTeam.players, 'red');
+    });
+
+    // ── Events ──────────────────────────────────────────────
+    window.addEventListener('overlay:gameEvent', e => {
+      const ev = e.detail;
+      if (ev.type === 'ChampionKill') addKill(ev);
+      if (ev.type === 'FirstBlood') showAnn('FIRST BLOOD!');
+      if (ev.type === 'Multikill') showAnn(ev.killStreak + ' KILL!');
+      if (ev.type === 'Ace') showAnn('ACE!');
+    });
+
+    window.addEventListener('overlay:gamePhase', e => {
+      if (e.detail.phase === 'idle') qs('#splash').style.display = 'flex';
+    });
+
+    // ════════════════════════════════════════════════════════
+    // Render Player Panel
+    // ════════════════════════════════════════════════════════
+
+    function renderPanel(id, players, side) {
+      const el = qs('#' + id);
+      if (!el || !players?.length) return;
+
+      el.innerHTML = players.map((p, i) => {
+        const ch = (p.rawChampionName || p.championName || '').replace('game_character_displayname_', '');
+        const icon = OC.getChampionIcon(ch);
+        const dead = p.isDead || false;
+        const hp = p.maxHealth > 0 ? Math.round((p.currentHealth / p.maxHealth) * 100) : 100;
+        const hpClass = hp < 25 ? 'low' : side;
+        const key = side + i;
+
+        let flash = '';
+        if (dead && !prevDeaths[key]) flash = '<div class="death-flash"></div>';
+        prevDeaths[key] = dead;
+
+        let buff = '';
+        if (p.hasBaron && p.hasElder) buff = 'baron-buff elder-buff';
+        else if (p.hasBaron) buff = 'baron-buff';
+        else if (p.hasElder) buff = 'elder-buff';
+
+        const g = fmtG(p.gold || 0);
+        const dmg = fmtG(p.damageDealt || 0);
+
+        if (side === 'blue') {
+          return `<div class="p-row blue-row ${buff}">
+            ${flash}
+            <div class="p-cs">${p.cs || 0}</div>
+            <div class="p-champ ${dead ? 'dead' : ''}"><img src="${icon}" alt="${ch}" onerror="this.src='/assets/unknown.png'"></div>
+            <div class="p-lvl">${p.level || 1}</div>
+            <div class="p-name">${p.summonerName || ''}</div>
+            <div class="p-gold">${g}</div>
+            <div class="p-kda"><span class="k">${p.kills||0}</span><span class="s">/</span><span class="d">${p.deaths||0}</span><span class="s">/</span><span class="a">${p.assists||0}</span></div>
+            <div class="p-dmg">${dmg}</div>
+            <div class="hp-bar"><div class="hp-fill ${hpClass}" style="width:${hp}%"></div></div>
+          </div>`;
+        } else {
+          return `<div class="p-row red-row ${buff}">
+            ${flash}
+            <div class="p-dmg">${dmg}</div>
+            <div class="p-kda"><span class="k">${p.kills||0}</span><span class="s">/</span><span class="d">${p.deaths||0}</span><span class="s">/</span><span class="a">${p.assists||0}</span></div>
+            <div class="p-gold">${g}</div>
+            <div class="p-name">${p.summonerName || ''}</div>
+            <div class="p-lvl">${p.level || 1}</div>
+            <div class="p-champ ${dead ? 'dead' : ''}"><img src="${icon}" alt="${ch}" onerror="this.src='/assets/unknown.png'"></div>
+            <div class="p-cs">${p.cs || 0}</div>
+            <div class="hp-bar"><div class="hp-fill red ${hpClass}" style="width:${hp}%"></div></div>
+          </div>`;
+        }
+      }).join('');
+    }
+
+    // ════════════════════════════════════════════════════════
+    // Kill Feed
+    // ════════════════════════════════════════════════════════
+
+    function addKill(ev) {
+      const feed = qs('#killfeed');
+      const item = document.createElement('div');
+      item.className = 'kf-item';
+      item.innerHTML = `
+        <span class="killer">${ev.killer || '?'}</span>
+        <span class="sword">⚔</span>
+        <span class="victim">${ev.victim || '?'}</span>
+      `;
+      feed.prepend(item);
+      while (feed.children.length > 5) feed.removeChild(feed.lastChild);
+      setTimeout(() => {
+        if (item.parentNode) {
+          item.style.opacity = '0';
+          item.style.transition = 'opacity 0.25s';
+          setTimeout(() => item.remove(), 250);
+        }
+      }, 7000);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // Announcer
+    // ════════════════════════════════════════════════════════
+
+    function showAnn(text) {
+      const el = qs('#announcer');
+      qs('#ann-text').textContent = text;
+      el.style.display = 'block';
+      if (annTimer) clearTimeout(annTimer);
+      annTimer = setTimeout(() => el.style.display = 'none', 3500);
+    }
+
+    // ════════════════════════════════════════════════════════
+    // Helpers
+    // ════════════════════════════════════════════════════════
+
+    function qs(sel) { return document.querySelector(sel); }
+
+    function fmtG(v) {
+      if (!v) return '0';
+      if (v >= 1000) return (v / 1000).toFixed(1) + 'K';
+      return String(v);
+    }
+
+    function fmtTime(sec) {
+      if (!sec) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return m + ':' + String(s).padStart(2, '0');
+    }
+
+    function anim(sel, from, to) {
+      const el = qs(sel);
+      if (!el || from === to) { if (el) el.textContent = to; return; }
+      el.textContent = to;
+      el.style.transform = 'scale(1.3)';
+      el.style.transition = 'transform 0.2s ease-out';
+      setTimeout(() => el.style.transform = 'scale(1)', 200);
+    }
+  </script>
+</body>
+</html>

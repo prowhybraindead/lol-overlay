@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoL Overlay — Gold Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/css/overlay.css">
+</head>
+<body>
+
+  <div class="gold-graph-box">
+    <div class="gold-lead-num" id="gold-lead">+0</div>
+    <canvas id="goldChart" height="170"></canvas>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    const OC = window.OverlayClient;
+    let chart = null, cfg = null;
+
+    function initChart() {
+      const ctx = document.getElementById('goldChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Gold Diff', data: [], borderWidth: 2, tension: 0.3, pointRadius: 0,
+          fill: true,
+          segment: { borderColor: c => (c.p1.parsed.y >= 0 ? '#4da3ff' : '#e74c3c') },
+          backgroundColor: function(context) {
+            const ch = context.chart;
+            if (!ch.chartArea) return 'rgba(0,0,0,0)';
+            const g = ch.ctx.createLinearGradient(0, ch.chartArea.top, 0, ch.chartArea.bottom);
+            g.addColorStop(0, 'rgba(77,163,255,0.2)');
+            g.addColorStop(0.5, 'rgba(0,0,0,0)');
+            g.addColorStop(1, 'rgba(231,76,60,0.2)');
+            return g;
+          }
+        }]},
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 150 },
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10 }, maxTicksLimit: 10 } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 10, family: 'Bebas Neue' }, callback: v => (v>=0?'+':'') + (v/1000).toFixed(1)+'k' } }
+          }
+        }
+      });
+    }
+    initChart();
+
+    window.addEventListener('overlay:configLoaded', e => { cfg = e.detail; });
+
+    window.addEventListener('overlay:gameData', e => {
+      const d = e.detail;
+      if (!d?.blueTeam?.totalGold) return;
+      const diff = d.blueTeam.totalGold - d.redTeam.totalGold;
+      const el = document.getElementById('gold-lead');
+      const abs = Math.abs(diff) >= 1000 ? (Math.abs(diff)/1000).toFixed(1)+'K' : Math.abs(diff);
+      const tag = diff >= 0 ? (cfg?.teams?.blue?.tag||'Blue') : (cfg?.teams?.red?.tag||'Red');
+      el.textContent = tag + ' +' + abs;
+      el.style.color = diff >= 0 ? '#4da3ff' : '#e74c3c';
+
+      if (d.goldHistory?.length > 0) {
+        chart.data.labels = d.goldHistory.map(g => { const m=Math.floor(g.time/60); const s=Math.floor(g.time%60); return m+':'+String(s).padStart(2,'0'); });
+        chart.data.datasets[0].data = d.goldHistory.map(g => g.diff);
+        chart.update('none');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LoL Overlay — Branding</title>
+  <link rel="stylesheet" href="/css/overlay.css">
+</head>
+<body>
+
+  <div class="brand-bar" id="brand">
+    <img id="br-logo" src="" alt="" style="height:20px;object-fit:contain;" onerror="this.style.display='none'">
+    <span class="name" id="br-name">GIẢI ĐẤU LIÊN MINH SINH VIÊN</span>
+    <span class="team" style="color:var(--blue-light);" id="br-blue">HCM</span>
+    <span class="vs">VS</span>
+    <span class="team" style="color:var(--red-light);" id="br-red">FPT</span>
+    <span id="br-series" style="font-size:10px;color:var(--text-dim);border:1px solid var(--border);padding:1px 6px;border-radius:8px;">BO3</span>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+  <script>
+    function apply(c) {
+      if (!c) return;
+      if (c.tournament) {
+        if (c.tournament.logo) document.getElementById('br-logo').src = c.tournament.logo;
+        if (c.tournament.name) document.getElementById('br-name').textContent = c.tournament.name;
+      }
+      if (c.teams) {
+        document.getElementById('br-blue').textContent = c.teams.blue.tag||'BLUE';
+        document.getElementById('br-red').textContent = c.teams.red.tag||'RED';
+      }
+    }
+    window.addEventListener('overlay:configLoaded', e => apply(e.detail));
+    window.addEventListener('overlay:configUpdate', e => apply(e.detail));
+  </script>
+</body>
+</html>

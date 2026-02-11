@@ -1,0 +1,40 @@
+{
+  "server": {
+    "port": 3003,
+    "pollIntervalMs": 500,
+    "lcuPollIntervalMs": 1000
+  },
+  "tournament": {
+    "name": "Giải Đấu Liên Minh Sinh Viên 2026",
+    "shortName": "SVLM 2026",
+    "logo": "/assets/tournament-logo.png",
+    "sponsors": ["HCMUS", "FPT University"]
+  },
+  "teams": {
+    "blue": {
+      "name": "HCMUS Esports",
+      "tag": "HCM",
+      "logo": "/assets/hcmus-logo.png",
+      "color": "#1a73e8"
+    },
+    "red": {
+      "name": "FPT Foxes",
+      "tag": "FPT",
+      "logo": "/assets/fpt-logo.png",
+      "color": "#e53935"
+    }
+  },
+  "overlay": {
+    "showTimers": true,
+    "showGoldGraph": true,
+    "showMinimap": true,
+    "showBranding": true,
+    "showKillfeed": true,
+    "locale": "vn",
+    "animationsEnabled": true
+  },
+  "riotApi": {
+    "region": "vn2",
+    "platform": "VN2"
+  }
+}
